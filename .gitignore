@@ -1,0 +1,16 @@
+# Python files
+__pycache__/
+venv/
+
+# Editor files
+.idea/
+
+# Secrets file
+Config.py
+
+# Log files
+Debug Files/
+
+# Temp files
+NEWCOG/
+ADD TO BOBBOT/
