@@ -1,0 +1,1 @@
+A discord bot with many useful features such as fun games, music control, levelling and much more.
