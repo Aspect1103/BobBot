@@ -6,19 +6,29 @@ import discord
 # Custom
 import Config
 
-# Discord variables
-bot = discord.Bot()
-
 # Path variables
 rootDirectory = Path(__file__).parent
 logPath = rootDirectory.joinpath("Debug Files").joinpath("bot.log")
 
 
+# Subclass to add global bot functionality
+class BobBot(discord.Bot):
+    def __init__(self, *args, **options):
+        super().__init__(*args, **options)
+        self.errorColor = discord.Color.from_rgb(0, 0, 0)
+
+
 # Function which runs once the bot is setup and running
 async def startup() -> None:
     await bot.wait_until_ready()
+    # Run startup functions for each cog
+    for cog in bot.cogs.values():
+        await cog.startup()
     await bot.get_channel(817807544482922496).send("Running")
 
+
+# Discord variables
+bot = BobBot()
 
 # Setup automatic logging for debugging
 logger = logging.getLogger("discord")
