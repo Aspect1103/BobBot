@@ -156,7 +156,7 @@ class Music(discord.Cog):
 
     @discord.slash_command(guild_ids=[682249251543449601])
     async def resume(self,
-                    ctx: discord.ApplicationContext
+                     ctx: discord.ApplicationContext
                      ) -> None:
         """Resumes the currently playing track."""
         if not ctx.voice_client:
@@ -216,6 +216,35 @@ class Music(discord.Cog):
             return
         await player.play(track)
 
+    # @discord.slash_command(guild_ids=[682249251543449601])
+    # async def queue(self,
+    #                 ctx: discord.ApplicationContext
+    #                 ) -> None:
+    #     """Displays the current queue."""
+    #     if not ctx.voice_client:
+    #         await ctx.respond("Bot is not connected to voice")
+    #         return
+    #     player: CustomPlayer = ctx.voice_client
+    #     try:
+    #         tracks = player.queue.tracks
+    #     except lavapy.QueueEmpty:
+    #         await ctx.respond("Queue is empty.")
+    #         return
+    #     queueEmbedList = []
+    #     for count, sublist in enumerate(self.listSplit(tracks, 20)):
+    #         tempEmbed = discord.Embed(colour=self.color)
+    #         tempEmbed.set_footer(text=f"Page {count+1}")
+    #         description = "```"
+    #         for position, track in enumerate(sublist):
+    #             if isinstance(track, lavapy.Track):
+    #                 description += f"{position+1}. {track.title} - {track.author}\n"
+    #             elif isinstance(track, lavapy.PartialResource):
+    #                 description += f"{position + 1}. {track.query} (Partial)\n"
+    #         tempEmbed.description = description + "```"
+    #         queueEmbedList.append(tempEmbed)
+    #     await ctx.respond(embed=queueEmbedList[0])
+    #     # add buttons to switch between pages
+
     @discord.slash_command(guild_ids=[682249251543449601])
     async def queue(self,
                     ctx: discord.ApplicationContext
@@ -230,20 +259,39 @@ class Music(discord.Cog):
         except lavapy.QueueEmpty:
             await ctx.respond("Queue is empty.")
             return
-        queueEmbedList = []
-        for count, sublist in enumerate(self.listSplit(tracks, 20)):
-            tempEmbed = discord.Embed(colour=self.color)
-            tempEmbed.set_footer(text=f"Page {count+1}")
-            description = "```"
-            for position, track in enumerate(sublist):
-                if isinstance(track, lavapy.Track):
-                    description += f"{position+1}. {track.title} - {track.author}\n"
-                elif isinstance(track, lavapy.PartialResource):
-                    description += f"{position + 1}. {track.query} (Partial)\n"
-            tempEmbed.description = description + "```"
-            queueEmbedList.append(tempEmbed)
-        await ctx.respond(embed=queueEmbedList[0])
-        # add buttons to switch between pages
+        tracks = self.listSplit(tracks, 20)
+        pages = []
+        for count, sublist in enumerate(tracks):
+            tempEmbed = discord.Embed(title=f"Page {count+1} of {len(pages)}", colour=self.color)
+
+
+    # queue command with a cooldown of 1 use every 60 seconds per guild
+    # @commands.command(help=f"Displays a server's radio queue. It has a cooldown of {Utils.long} seconds", usage="queue", brief="Radio")
+    # @commands.cooldown(1, Utils.long, commands.sBucketType.guild)
+    # async def queue(self, ctx: commands.Context) -> None:
+    #     # Test if the bot is already connected
+    #     if self.isConnected(ctx.guild):
+    #         # Create variables needed for the queue
+    #         slicedList: List[wavelink.PartialTrack] = self.tracks[ctx.guild.id][self.nextTrack[ctx.guild.id]:]
+    #         listAmount = math.ceil(len(slicedList)/10)
+    #         splittedList = Utils.listSplit(slicedList, 10, listAmmount)
+    #         # Create embed objects for each page
+    #         pages = []
+    #         for countArr, arr in enumerate(splittedList):
+    #             tempEmbed = Embed(title=f"{ctx.guild.name} Radio Queue", colour=self.colour)
+    #             tempEmbed.set_footer(text=f"Page {countArr+1} of {listAmount}. Track Total: {len(slicedList)}")
+    #             tempDescription = ""
+    #             for countTrack, track in enumerate(arr):
+    #                 tempTitleAuthor: List[str] = track.query.split(" - ")
+    #                 tempDescription += f"{(countArr*10)+countTrack+1}. {tempTitleAuthor[0]} by {tempTitleAuthor[1]}\n"
+    #             tempEmbed.description = tempDescription
+    #             pages.append(tempEmbed)
+    #         # Create paginator
+    #         paginator = Paginator(ctx, self.bot)
+    #         paginator.addPages(pages)
+    #         await paginator.start()
+    #     else:
+    #         await Utils.commandDebugEmbed(ctx.channel, f"Bot is not connected to a voice channel. Please use {ctx.prefix}connect to connect it to one")
 
 
 def setup(bot) -> None:

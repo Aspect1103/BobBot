@@ -18,7 +18,7 @@ class BobBot(discord.Bot):
         self.errorColor = discord.Color.from_rgb(0, 0, 0)
 
 
-# Function which runs once the bot is setup and running
+# Function which runs once the bot is set up and running
 async def startup() -> None:
     await bot.wait_until_ready()
     # Run startup functions for each cog
