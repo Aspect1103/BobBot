@@ -7,6 +7,7 @@ import lavapy
 from lavapy.ext import spotify
 # Custom
 import Config
+from Utils.Paginator import Paginator
 
 if TYPE_CHECKING:
     from BobBot import BobBot
@@ -111,7 +112,7 @@ class Music(discord.Cog):
     @discord.slash_command(guild_ids=[682249251543449601])
     async def play(self,
                    ctx: discord.ApplicationContext,
-                   query: discord.Option(str, "The query to search for. This could be a search query or a URL.")
+                   query: discord.Option(str, "The query to search for. This could be a search query or a URL")
                    ) -> None:
         """Searches for and plays a given search query or URL."""
         if not ctx.voice_client:
@@ -178,27 +179,11 @@ class Music(discord.Cog):
             await ctx.respond("Bot is not connected to voice")
             return
         player: CustomPlayer = ctx.voice_client
-        if not player.isPaused:
+        if not player.isPlaying:
             await ctx.respond("Bot is already stopped")
             return
         await player.stop()
         await ctx.respond("Bot has been stopped")
-
-    @discord.slash_command(guild_ids=[682249251543449601])
-    async def previous(self,
-                       ctx: discord.ApplicationContext
-                       ) -> None:
-        """Plays the previous song in the queue."""
-        if not ctx.voice_client:
-            await ctx.respond("Bot is not connected to voice")
-            return
-        player: CustomPlayer = ctx.voice_client
-        try:
-            track = player.queue.previous()
-        except lavapy.QueueEmpty:
-            await ctx.respond("Queue is empty")
-            return
-        await player.play(track)
 
     @discord.slash_command(guild_ids=[682249251543449601])
     async def next(self,
@@ -214,36 +199,31 @@ class Music(discord.Cog):
         except lavapy.QueueEmpty:
             await ctx.respond("Queue is empty.")
             return
+        except lavapy.RepeatException:
+            await ctx.respond("Cannot get next track while the bot is repeating")
+            return
         await player.play(track)
+        await ctx.respond(f"Now playing {player.track.title}")
 
-    # @discord.slash_command(guild_ids=[682249251543449601])
-    # async def queue(self,
-    #                 ctx: discord.ApplicationContext
-    #                 ) -> None:
-    #     """Displays the current queue."""
-    #     if not ctx.voice_client:
-    #         await ctx.respond("Bot is not connected to voice")
-    #         return
-    #     player: CustomPlayer = ctx.voice_client
-    #     try:
-    #         tracks = player.queue.tracks
-    #     except lavapy.QueueEmpty:
-    #         await ctx.respond("Queue is empty.")
-    #         return
-    #     queueEmbedList = []
-    #     for count, sublist in enumerate(self.listSplit(tracks, 20)):
-    #         tempEmbed = discord.Embed(colour=self.color)
-    #         tempEmbed.set_footer(text=f"Page {count+1}")
-    #         description = "```"
-    #         for position, track in enumerate(sublist):
-    #             if isinstance(track, lavapy.Track):
-    #                 description += f"{position+1}. {track.title} - {track.author}\n"
-    #             elif isinstance(track, lavapy.PartialResource):
-    #                 description += f"{position + 1}. {track.query} (Partial)\n"
-    #         tempEmbed.description = description + "```"
-    #         queueEmbedList.append(tempEmbed)
-    #     await ctx.respond(embed=queueEmbedList[0])
-    #     # add buttons to switch between pages
+    @discord.slash_command(guild_ids=[682249251543449601])
+    async def previous(self,
+                       ctx: discord.ApplicationContext
+                       ) -> None:
+        """Plays the previous song in the queue."""
+        if not ctx.voice_client:
+            await ctx.respond("Bot is not connected to voice")
+            return
+        player: CustomPlayer = ctx.voice_client
+        try:
+            track = player.queue.previous()
+        except lavapy.QueueEmpty:
+            await ctx.respond("Queue is empty")
+            return
+        except lavapy.RepeatException:
+            await ctx.respond("Cannot get previous track while the bot is repeating")
+            return
+        await player.play(track)
+        await ctx.respond(f"Now playing {player.track.title}")
 
     @discord.slash_command(guild_ids=[682249251543449601])
     async def queue(self,
@@ -259,39 +239,87 @@ class Music(discord.Cog):
         except lavapy.QueueEmpty:
             await ctx.respond("Queue is empty.")
             return
-        tracks = self.listSplit(tracks, 20)
+        # Split up tracks into sublists of 20 tracks each
         pages = []
-        for count, sublist in enumerate(tracks):
-            tempEmbed = discord.Embed(title=f"Page {count+1} of {len(pages)}", colour=self.color)
+        splittedTracks = self.listSplit(tracks, 20)
+        for count, sublist in enumerate(splittedTracks):
+            tempEmbed = discord.Embed(title=f"Page {count+1} of {len(splittedTracks)}", colour=self.color)
+            tempEmbed.set_footer(text=f"Track Total: {len(tracks)}")
+            tempDescription = ""
+            for position, track in enumerate(sublist):
+                # Display currently playing track
+                if track == player.track:
+                    tempDescription += "► "
+                # Display the track position and query ('track - author name' for full tracks)
+                if isinstance(track, lavapy.Track):
+                    tempDescription += f"{(count*20)+position+1}. {track.title} - {track.author}\n"
+                elif isinstance(track, lavapy.PartialResource):
+                    tempDescription += f"{(count*20)+position+1}. {track.query} (Partial)\n"
+            tempEmbed.description = tempDescription
+            pages.append(tempEmbed)
+        # Paginate the response
+        paginator = Paginator(pages)
+        await paginator.respond(ctx.interaction)
 
+    @discord.slash_command(guild_ids=[682249251543449601])
+    async def repeat(self,
+                     ctx: discord.ApplicationContext
+                     ) -> None:
+        """Toggles repeating of the current track."""
+        if not ctx.voice_client:
+            await ctx.respond("Bot is not connected to voice")
+            return
+        player: CustomPlayer = ctx.voice_client
+        print(player.isRepeating)
+        if player.isRepeating:
+            player.stopRepeat()
+            await ctx.respond("Stopped repeating the current track")
+        else:
+            player.repeat()
+            await ctx.respond("Repeating the current track")
 
-    # queue command with a cooldown of 1 use every 60 seconds per guild
-    # @commands.command(help=f"Displays a server's radio queue. It has a cooldown of {Utils.long} seconds", usage="queue", brief="Radio")
-    # @commands.cooldown(1, Utils.long, commands.sBucketType.guild)
-    # async def queue(self, ctx: commands.Context) -> None:
-    #     # Test if the bot is already connected
-    #     if self.isConnected(ctx.guild):
-    #         # Create variables needed for the queue
-    #         slicedList: List[wavelink.PartialTrack] = self.tracks[ctx.guild.id][self.nextTrack[ctx.guild.id]:]
-    #         listAmount = math.ceil(len(slicedList)/10)
-    #         splittedList = Utils.listSplit(slicedList, 10, listAmmount)
-    #         # Create embed objects for each page
-    #         pages = []
-    #         for countArr, arr in enumerate(splittedList):
-    #             tempEmbed = Embed(title=f"{ctx.guild.name} Radio Queue", colour=self.colour)
-    #             tempEmbed.set_footer(text=f"Page {countArr+1} of {listAmount}. Track Total: {len(slicedList)}")
-    #             tempDescription = ""
-    #             for countTrack, track in enumerate(arr):
-    #                 tempTitleAuthor: List[str] = track.query.split(" - ")
-    #                 tempDescription += f"{(countArr*10)+countTrack+1}. {tempTitleAuthor[0]} by {tempTitleAuthor[1]}\n"
-    #             tempEmbed.description = tempDescription
-    #             pages.append(tempEmbed)
-    #         # Create paginator
-    #         paginator = Paginator(ctx, self.bot)
-    #         paginator.addPages(pages)
-    #         await paginator.start()
-    #     else:
-    #         await Utils.commandDebugEmbed(ctx.channel, f"Bot is not connected to a voice channel. Please use {ctx.prefix}connect to connect it to one")
+    @discord.slash_command(guild_ids=[682249251543449601])
+    async def shuffle(self,
+                      ctx: discord.ApplicationContext
+                      ) -> None:
+        """Shuffles the queue leaving the current track in the same place."""
+        if not ctx.voice_client:
+            await ctx.respond("Bot is not connected to voice")
+            return
+        player: CustomPlayer = ctx.voice_client
+        player.queue.shuffle()
+        await ctx.respond("Shuffled the queue")
+
+    @discord.slash_command(guild_ids=[682249251543449601])
+    async def volume(self,
+                     ctx: discord.ApplicationContext,
+                     volume: discord.Option(int, "The volume to set the bot to", min_value=0, max_value=1000)
+                     ) -> None:
+        """Shuffles the queue leaving the current track in the same place."""
+        if not ctx.voice_client:
+            await ctx.respond("Bot is not connected to voice")
+            return
+        player: CustomPlayer = ctx.voice_client
+        await player.setVolume(volume)
+        await ctx.respond(f"Set bot volume to {volume}")
+
+    @discord.slash_command(guild_ids=[682249251543449601])
+    async def current(self,
+                      ctx: discord.ApplicationContext
+                      ) -> None:
+        """Displays the currently playing track."""
+        if not ctx.voice_client:
+            await ctx.respond("Bot is not connected to voice")
+            return
+        player: CustomPlayer = ctx.voice_client
+        if player.track is None:
+            await ctx.respond("Bot is not playing")
+            return
+        currentEmbed = discord.Embed(title=f"Currently Playing: {player.track.author} - {player.track.title}", colour=self.color)
+        currentEmbed.url = player.track.uri
+        if isinstance(player.track, lavapy.YoutubeTrack):
+            currentEmbed.set_image(url=player.track.thumbnail)
+        await ctx.respond(embed=currentEmbed)
 
 
 def setup(bot) -> None:
